@@ -31,6 +31,7 @@ def get_answer_urls(year):
 	for link in links:
 		href = link.attrib['href']
 		date_answered = href.split('/?d=')[1]
+		print(f"Processing date", date_answered)
 		get_answer_urls_for_date(BASE_URL + href, date_answered, writer)
 
 def main(args):
