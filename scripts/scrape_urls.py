@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import csv
 from datetime import date
 import os
@@ -69,52 +70,65 @@ def scrape_answer(url, date_submitted, date_answered, question_id):
 	data['attachment'] = doc('.qna-result-attachments-container').text()
 	return data
 
+def scrape_answer_wrapper(row):
+	url = row['url']
+	date_answered = row['date_answered']
+	date_submitted = re.search(r'id=(.*?)\.', url).group(1)
+	question_id = re.search(r'id=(.*?)\.(.*?)\.', url).group(2)
+	return scrape_answer(url, date_submitted, date_answered, question_id)
+
+
 def get_answers(year):
-	'''
-	Process a list of input URLs, and any data we have already scraped,
-	and store to an output file.
-	'''
-	url_file = "../data/urls/written_answer_urls_%s.csv" % year
-	outfile = "../data/raw_answers/output_%s.csv" % year
-	today = date.today()
+    url_file = "../data/urls/written_answer_urls_%s.csv" % year
+    outfile = "../data/raw_answers/output_%s.csv" % year
+    today = date.today()
 
-	# First check for answers we have already scraped, and
-	# rename the output file if necessary.
-	previously_scraped_urls = []
-	if os.path.exists(outfile):
-		reader = csv.DictReader(open(outfile, "r"))
-		for row in reader:
-			previously_scraped_urls.append({row['url']: row})
-		outfile = '../data/raw_answers/output_%s_%s.csv' % \
-			(year, today.strftime("%Y-%m-%d"))
-	if previously_scraped_urls:
-		print(len(previously_scraped_urls), 'previously scraped URLs found')
+    os.makedirs('../data/raw_answers', exist_ok=True)
 
-	header = [
-		'url', 'title', 'department', 'date_submitted', 'date_answered',
-		'question_speaker', 'question_position', 'question_text',
-		'answer_speaker', 'answer_position', 'answer_text',
-		'votes_answered', 'votes_notanswered', 'votes_diff', 'attachment'
-	]
-	writer = csv.DictWriter(open(outfile, 'w'), fieldnames=header)
-	writer.writeheader()
-	reader = csv.DictReader(open(url_file, 'r'))
-	counter = 0
-	for row in reader:
-		counter += 1
-		url = row['url']
-		if url in previously_scraped_urls:
-			writer.writerow(urls[url])
-		else:
-			date_answered = row['date_answered']
-			date_submitted = re.search(r'id=(.*?)\.', url).group(1)
-			question_id = re.search(r'id=(.*?)\.(.*?)\.', url).group(2)
-			if (counter % 100) == 0:
-				print(counter)
-			row = scrape_answer(url, date_submitted, date_answered, question_id)
-			writer.writerow(row)
-			# time.sleep(2)
+    previously_scraped_urls = {}
+    if os.path.exists(outfile):
+        with open(outfile, "r") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                previously_scraped_urls[row['url']] = row
+        outfile = '../data/raw_answers/output_%s_%s.csv' % (year, today.strftime("%Y-%m-%d"))
+    
+    print(len(previously_scraped_urls), 'previously scraped URLs found')
 
+    with open(url_file, 'r') as f:
+        reader = csv.DictReader(f)
+        rows_to_scrape = [row for row in reader if row['url'] not in previously_scraped_urls]
+
+    header = [
+        'url', 'title', 'department', 'date_submitted', 'date_answered',
+        'question_speaker', 'question_position', 'question_text',
+        'answer_speaker', 'answer_position', 'answer_text',
+        'votes_answered', 'votes_notanswered', 'votes_diff', 'attachment'
+    ]
+
+    # Counter for scraped URLs
+    scraped_count = 0
+
+    with open(outfile, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=header)
+        writer.writeheader()
+
+        # Initialize the ThreadPoolExecutor
+        with ThreadPoolExecutor() as executor:
+            # Dictionary to keep track of futures
+            future_to_url = {executor.submit(scrape_answer_wrapper, row): row for row in rows_to_scrape}
+            
+            for future in as_completed(future_to_url):
+                url = future_to_url[future]
+                try:
+                    result = future.result()
+                    writer.writerow(result)
+                    scraped_count += 1  # Increment the counter
+                    if scraped_count % 250 == 0:  # Print every 250 completed URLs
+                        print(f"Scraped {scraped_count} URLs so far.")
+                except Exception as e:
+                    print(f"Failed to scrape: {url['url']} with error: {e}")
+                    
 def main(args):
 	get_answers(args.year)
 
