@@ -14,11 +14,12 @@ pip install -r requirements.txt
 
 First collect the URLs of written answers from TheyWorkForYou:
 
-    ./get_answer_urls.py --year 2023
+    cd scripts
+    python3 get_answer_urls.py --year 2023
 
 Then scrape the raw data:
 
-    python scrape.py
+    python3 scrape_urls.py --year 2023
     
 **How to run the analysis**
 
