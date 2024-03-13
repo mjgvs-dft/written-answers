@@ -1,5 +1,15 @@
 Scripts and Jupyter notebooks to download and analyse unanswered Parliamentary written questions (PWQs) from [TheyWorkForYou](theyworkforyou.com).
 
+**Project set-up**
+
+```
+git clone git@github.com:centreforpublicdata/written-answers.git
+cd written-answers
+conda create -n written-answers python=3.10
+conda activate written-answers
+pip install -r requirements.txt
+``` 
+
 **How to collect data**
 
 First collect the URLs of written answers from TheyWorkForYou:
