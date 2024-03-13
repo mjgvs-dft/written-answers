@@ -15,9 +15,12 @@ def get_answer_urls_for_date(date_url, date_answered, writer):
 		if not href.endswith('.mh'):
 			writer.writerow({'url': BASE_URL + href, 'date_answered': date_answered})
 
+import os
+
 def get_answer_urls(year):
 	print("Getting URLs for %s" % year)
 	url_header = ['url', 'date_answered']
+	os.makedirs('../data/urls', exist_ok=True)
 	writer = csv.DictWriter(open('../data/urls/written_answer_urls_%s.csv' % year, 'w'), \
 		fieldnames=url_header)
 	writer.writeheader()
